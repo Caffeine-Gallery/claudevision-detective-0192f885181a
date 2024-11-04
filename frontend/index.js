@@ -1,39 +1,100 @@
 import { backend } from 'declarations/backend';
 
-document.getElementById('detectButton').addEventListener('click', async () => {
-  const apiKey = document.getElementById('apiKey').value;
-  const imageInput = document.getElementById('imageInput');
-  const resultDiv = document.getElementById('result');
+const dropArea = document.getElementById('dropArea');
+const fileInput = document.getElementById('fileInput');
+const previewImage = document.getElementById('previewImage');
+const apiKeyInput = document.getElementById('apiKey');
+const detectButton = document.getElementById('detectButton');
+const resultDiv = document.getElementById('result');
 
-  if (imageInput.files.length > 0) {
-    const file = imageInput.files[0];
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, preventDefaults, false);
+});
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+['dragenter', 'dragover'].forEach(eventName => {
+    dropArea.addEventListener(eventName, highlight, false);
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, unhighlight, false);
+});
+
+function highlight() {
+    dropArea.classList.add('highlight');
+}
+
+function unhighlight() {
+    dropArea.classList.remove('highlight');
+}
+
+dropArea.addEventListener('drop', handleDrop, false);
+
+function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    handleFiles(files);
+}
+
+dropArea.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+function handleFiles(files) {
+    if (files.length > 0) {
+        const file = files[0];
+        previewFile(file);
+    }
+}
+
+function previewFile(file) {
     const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onloadend = function() {
+        previewImage.src = reader.result;
+        previewImage.style.display = 'block';
+    }
+}
 
-    reader.onload = async function(event) {
-      const base64Image = event.target.result.split(',')[1];
-      
-      try {
+detectButton.addEventListener('click', async () => {
+    const apiKey = apiKeyInput.value;
+    if (!apiKey) {
+        alert('Please enter an API key');
+        return;
+    }
+
+    if (!previewImage.src) {
+        alert('Please select an image first');
+        return;
+    }
+
+    const base64Image = previewImage.src.split(',')[1];
+    resultDiv.textContent = 'Detecting objects...';
+
+    try {
         const result = await backend.detectObjects(apiKey, base64Image);
         if (result.ok) {
-          try {
-            const parsedResult = JSON.parse(result.ok);
-            resultDiv.textContent = JSON.stringify(parsedResult, null, 2);
-          } catch (parseError) {
-            console.error('Error parsing JSON:', parseError);
-            resultDiv.textContent = 'Error: Invalid JSON response from server';
-          }
+            const detections = JSON.parse(result.ok);
+            displayDetections(detections);
         } else {
-          console.error('Error from backend:', result.err);
-          resultDiv.textContent = `Error: ${result.err}`;
+            resultDiv.textContent = `Error: ${result.err}`;
         }
-      } catch (error) {
+    } catch (error) {
         console.error('Error calling backend:', error);
         resultDiv.textContent = `Error: ${error.message}`;
-      }
-    };
-
-    reader.readAsDataURL(file);
-  } else {
-    resultDiv.textContent = 'Please select an image first.';
-  }
+    }
 });
+
+function displayDetections(detections) {
+    resultDiv.innerHTML = '<h3>Detected Objects:</h3>';
+    const ul = document.createElement('ul');
+    detections.detections.forEach(detection => {
+        const li = document.createElement('li');
+        li.textContent = `${detection.element} (Confidence: ${(detection.confidence * 100).toFixed(2)}%)`;
+        ul.appendChild(li);
+    });
+    resultDiv.appendChild(ul);
+}
