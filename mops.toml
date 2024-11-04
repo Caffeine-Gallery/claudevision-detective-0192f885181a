@@ -1,0 +1,4 @@
+[dependencies]
+base = "0.7.3"
+http-client = "0.1.0"
+http-types = "0.1.0"

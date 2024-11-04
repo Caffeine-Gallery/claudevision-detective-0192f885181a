@@ -1,0 +1,8 @@
+type Result = 
+ variant {
+   err: text;
+   ok: text;
+ };
+service : {
+  detectObjects: (text, text) -> (Result);
+}
