@@ -22,36 +22,38 @@ actor {
         ];
 
         try {
-            let ic : actor { call_raw : (Text, Text, Blob) -> async Blob } = actor("aaaaa-aa");
-            let response = await ic.call_raw(
-                "https://ic0.app",
-                "http_request",
-                to_candid({
-                    url = url;
-                    max_response_bytes = null;
-                    headers = request_headers;
-                    body = ?Text.encodeUtf8(body);
-                    method = "POST";
-                    transform = null;
-                })
-            );
+            let ic : actor { 
+                http_request : {
+                    url : Text;
+                    method : Text;
+                    body : [Nat8];
+                    headers : [(Text, Text)];
+                } -> async {
+                    status : Nat;
+                    headers : [(Text, Text)];
+                    body : [Nat8];
+                };
+            } = actor("aaaaa-aa");
 
-            let decoded = from_candid(response) : ?{ body : ?Blob };
-            switch (decoded) {
-                case (?{ body = ?responseBody }) {
-                    let decodedText = Text.decodeUtf8(responseBody);
-                    switch (decodedText) {
-                        case (?text) {
-                            #ok(text)
-                        };
-                        case (null) {
-                            #err("Failed to decode response body")
-                        };
+            let response = await ic.http_request({
+                url = url;
+                method = "POST";
+                body = Blob.toArray(Text.encodeUtf8(body));
+                headers = request_headers;
+            });
+
+            if (response.status == 200) {
+                let responseBody = Text.decodeUtf8(Blob.fromArray(response.body));
+                switch (responseBody) {
+                    case (?text) {
+                        #ok(text)
+                    };
+                    case (null) {
+                        #err("Failed to decode response body")
                     };
                 };
-                case (_) {
-                    #err("Invalid response format")
-                };
+            } else {
+                #err("HTTP request failed with status: " # Nat.toText(response.status))
             };
         } catch (e) {
             #err("Error making HTTP request: " # Error.message(e))
