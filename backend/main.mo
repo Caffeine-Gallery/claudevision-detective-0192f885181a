@@ -25,7 +25,7 @@ actor {
             let ic : actor { 
                 http_request : {
                     url : Text;
-                    method : Text;
+                    method : { #get; #post; #head };
                     body : [Nat8];
                     headers : [(Text, Text)];
                 } -> async {
@@ -37,7 +37,7 @@ actor {
 
             let response = await ic.http_request({
                 url = url;
-                method = "POST";
+                method = #post;
                 body = Blob.toArray(Text.encodeUtf8(body));
                 headers = request_headers;
             });
